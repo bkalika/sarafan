@@ -2,14 +2,18 @@ package com.sarafan.sarafan.controller;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import com.sarafan.sarafan.domain.Message;
+import com.sarafan.sarafan.domain.User;
 import com.sarafan.sarafan.domain.Views;
-import com.sarafan.sarafan.repo.MessageRepo;
-import org.springframework.beans.BeanUtils;
+import com.sarafan.sarafan.dto.MessagePageDto;
+import com.sarafan.sarafan.service.MessageService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+//import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import java.io.IOException;
 
 /**
  * @author @bkalika
@@ -18,24 +22,22 @@ import java.util.List;
 @RestController
 @RequestMapping("message")
 public class MessageController {
-//    private int counter = 4;
-//    private final List<Map<String, String>> messages = new ArrayList<>() {{
-//        add(new HashMap<>() {{put("id", "1"); put("text", "First message");}});
-//        add(new HashMap<>() {{put("id", "2"); put("text", "Second message");}});
-//        add(new HashMap<>() {{put("id", "3"); put("text", "Third message");}});
-//    }};
-
-    private final MessageRepo messagesRepo;
+    public static final int MESSAGES_PER_PAGE = 3;
+    private final MessageService messageService;
 
     @Autowired
-    public MessageController(MessageRepo messagesRepo) {
-        this.messagesRepo = messagesRepo;
+    public MessageController(MessageService messageService) {
+        this.messageService = messageService;
     }
 
     @GetMapping
-    @JsonView(Views.IdName.class)
-    public List<Message> list() {
-        return messagesRepo.findAll();
+    @JsonView(Views.FullMessage.class)
+    public MessagePageDto list(
+//            @AuthenticationPrincipal User user,
+            User user,
+            @PageableDefault(size = MESSAGES_PER_PAGE, sort = {"id"}, direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return messageService.findForUser(pageable, user);
     }
 
     @GetMapping("{id}")
@@ -45,23 +47,32 @@ public class MessageController {
     }
 
     @PostMapping
-    public Message create(@RequestBody Message message) {
-        message.setCreatedDate(LocalDateTime.now());
-        return messagesRepo.save(message);
+    @JsonView(Views.FullMessage.class)
+    public Message create(
+            @RequestBody Message message,
+//            @AuthenticationPrincipal User user
+            User user
+            ) throws IOException {
+        return messageService.create(message, user);
     }
 
     @PutMapping("{id}")
+    @JsonView(Views.FullMessage.class)
     public Message update(
             @PathVariable("id") Message messageFromDb,
-            @RequestBody Message message) {
-        BeanUtils.copyProperties(message, messageFromDb, "id");
-
-        return messagesRepo.save(messageFromDb);
+            @RequestBody Message message) throws IOException {
+        return messageService.update(messageFromDb, message);
     }
 
     @DeleteMapping("{id}")
     public void delete(@PathVariable("id") Message message) {
-        messagesRepo.delete(message);
+        messageService.delete(message);
     }
+
+//    @MessageMapping("/changeMessage")
+//    @SendTo("/topic/activity")
+//    public Message message(Message message) {
+//        return messagesRepo.save(message);
+//    }
 
 }
